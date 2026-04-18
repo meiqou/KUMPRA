@@ -1,0 +1,17 @@
+# kumpra/api/.htaccess
+Options -Indexes
+Options -MultiViews
+
+RewriteEngine On
+
+# Block direct access to config files
+RewriteRule ^config/ - [F,L]
+
+# Allow OPTIONS for CORS preflight
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule .* - [R=200,L]
+
+# Pretty URLs (optional)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?path=$1 [QSA,L]
