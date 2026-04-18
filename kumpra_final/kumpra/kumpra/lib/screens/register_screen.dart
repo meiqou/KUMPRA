@@ -1,5 +1,3 @@
-// lib/screens/auth/register_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/constants.dart';
@@ -16,7 +14,9 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
   
   List<dynamic> _clusters = [];
   String _selectedClusterId = '';
@@ -24,6 +24,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   
   bool _loading = false;
   bool _fetchingClusters = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -51,19 +61,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _register() async {
     String name = _nameController.text.trim();
     String username = _usernameController.text.trim();
+    String email = _emailController.text.trim();
     String phone = _phoneController.text.trim();
+    String password = _passwordController.text.trim();
 
-    print('Name: "$name", Username: "$username", Phone: "$phone", Cluster: "$_selectedClusterId"');
-
-    if (name.isEmpty || username.isEmpty || phone.length != 11 || !RegExp(r'^09\d{9}$').hasMatch(phone)) {
-      _showSnack('Please enter a valid name, username, and 11-digit phone number starting with 09');
+    if (name.isEmpty || username.isEmpty) {
+      _showSnack('Please enter a name and username');
+      return;
+    }
+    if (email.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _showSnack('Please enter a valid email address');
+      return;
+    }
+    if (!RegExp(r'^09\d{9}$').hasMatch(phone)) {
+      _showSnack('Please enter a valid mobile number starting with 09');
+      return;
+    }
+    if (password.length < 6) {
+      _showSnack('Please enter a password with at least 6 characters');
+      return;
+    }
+    if (_selectedClusterId.isEmpty) {
+      _showSnack('Please select a barangay');
       return;
     }
 
     setState(() => _loading = true);
-    
-    // We will use a registration method in AuthService
-    final res = await AuthService.register(name, username, phone, _selectedClusterId);
+
+    final res = await AuthService.register(name, username, email, phone, password, _selectedClusterId);
     
     setState(() => _loading = false);
 
@@ -136,13 +161,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // PHONE FIELD
+              // EMAIL FIELD
+              _buildField(
+                controller: _emailController,
+                label: 'EMAIL',
+                hint: 'name@example.com',
+                icon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+
+              // MOBILE NUMBER FIELD
               _buildField(
                 controller: _phoneController,
                 label: 'MOBILE NUMBER',
-                hint: '09123456789',
+                hint: '09xxxxxxxxx',
                 icon: Icons.phone_android_outlined,
-                isPhone: true,
+                keyboardType: TextInputType.phone,
+                maxLength: 11,
+              ),
+              const SizedBox(height: 16),
+
+              // PASSWORD FIELD
+              _buildField(
+                controller: _passwordController,
+                label: 'PASSWORD',
+                hint: 'Enter a secure password',
+                icon: Icons.lock_outline,
+                obscureText: true,
               ),
               const SizedBox(height: 16),
 
@@ -198,7 +244,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildField({required TextEditingController controller, required String label, required String hint, required IconData icon, bool isPhone = false}) {
+  Widget _buildField({required TextEditingController controller, required String label, required String hint, required IconData icon, bool obscureText = false, TextInputType keyboardType = TextInputType.text, int? maxLength}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -208,8 +254,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         controller: controller,
-        keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
-        maxLength: isPhone ? 11 : 50,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        obscureText: obscureText,
         decoration: InputDecoration(
           icon: Icon(icon, color: AppColors.primary),
           labelText: label,

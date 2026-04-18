@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/cart_provider.dart';
 import 'market_rows_screen.dart';
@@ -194,7 +195,29 @@ class _HomeScreenState extends State<HomeScreen> {
   void _createBatch() async {
     setState(() => _creatingBatch = true);
     final prefs = await SharedPreferences.getInstance();
-    final clusterId = prefs.getString('cluster_id') ?? '0';
+    var clusterId = prefs.getString('cluster_id') ?? '0';
+
+    if (clusterId == '0' || clusterId.isEmpty) {
+      final clustersRes = await AuthService.getClusters();
+      final clusters = clustersRes['clusters'];
+      if (clusters is List) {
+        for (final cluster in clusters) {
+          if (cluster is Map &&
+              (cluster['name']?.toString().toLowerCase() ==
+                  _clusterName.toLowerCase())) {
+            clusterId = cluster['cluster_id'].toString();
+            await prefs.setString('cluster_id', clusterId);
+            break;
+          }
+        }
+      }
+    }
+
+    if (clusterId == '0' || clusterId.isEmpty) {
+      setState(() => _creatingBatch = false);
+      _showSnack('Could not determine your barangay. Please log in again.');
+      return;
+    }
 
     final res = await ApiService.post(
         'batches/create.php',

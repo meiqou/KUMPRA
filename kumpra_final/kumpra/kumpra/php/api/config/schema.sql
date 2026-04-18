@@ -34,13 +34,10 @@ CREATE TABLE users (
     user_id              INT AUTO_INCREMENT PRIMARY KEY,
     full_name            VARCHAR(100) NOT NULL,
     username             VARCHAR(50) NOT NULL UNIQUE,
+    email                VARCHAR(150) NOT NULL UNIQUE,
     mobile_number        VARCHAR(15) NOT NULL UNIQUE,
-    preferences          TEXT,
-    special_instructions TEXT,
+    password             VARCHAR(255) NOT NULL,
     cluster_id           INT NOT NULL,
-    password             VARCHAR(255) DEFAULT '',
-    role                 VARCHAR(30) DEFAULT 'user',
-    is_verified          TINYINT(1) DEFAULT 0,
     created_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cluster_id) REFERENCES clusters(cluster_id)
 ) ENGINE=InnoDB;
@@ -110,6 +107,13 @@ INSERT INTO clusters (barangay_name, street_zone) VALUES
 ('Singcang, Bacolod', 'Zone C'),
 ('Bata, Bacolod', 'Zone D'),
 ('Tangub, Bacolod', 'Zone E');
+
+INSERT INTO clusters (barangay_name, street_zone) VALUES
+('Alijis, Bacolod', 'Zone F'),
+('Banago, Bacolod', 'Zone G'),
+('Burgos, Bacolod', 'Zone H'),
+('Estefania, Bacolod', 'Zone I'),
+('Mandalagan, Bacolod', 'Zone J');
 
 INSERT INTO riders (name, plate_number, wallet_balance, work_shift) VALUES
 ('Juan Dela Cruz', 'BCD-1234', 0.0, 'Morning'),

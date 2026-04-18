@@ -18,13 +18,14 @@ if ($batchId <= 0) respond(['success' => false, 'message' => 'batch_id is requir
 if (empty($items))  respond(['success' => false, 'message' => 'No items in basket']);
 
 $db = getDB();
+$userIdColumn = getUsersIdColumn($db);
 
 // Verify batch is valid and user's cluster matches
 $stmt = $db->prepare('
     SELECT b.batch_id, b.status, b.cluster_id, b.load_capacity_kg, b.total_weight
     FROM batches b
     JOIN users u ON u.cluster_id = b.cluster_id
-    WHERE b.batch_id = ? AND u.user_id = ?
+    WHERE b.batch_id = ? AND u.' . $userIdColumn . ' = ?
 ');
 $stmt->execute([$batchId, $userId]);
 $batch = $stmt->fetch();

@@ -15,7 +15,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _name = '';
   String _username = '';
-  String _phone = ''; // Changed from final to allow updates
   String _cluster = '';
 
   @override
@@ -30,8 +29,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _name = prefs.getString('user_name') ?? 'User';
       _username = prefs.getString('user_username') ?? '';
       _cluster = prefs.getString('cluster_name') ?? 'No Cluster';
-      // Added retrieval for the phone number
-      _phone = prefs.getString('user_phone') ?? 'No phone linked';
     });
   }
 
@@ -109,15 +106,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                // Displaying the phone number resolves the 'unused_field' warning
-                Text(
-                  _phone,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
                   ),
                 ),
               ],

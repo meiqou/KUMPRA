@@ -16,6 +16,7 @@ if ($batchId <= 0) {
 }
 
 $db = getDB();
+$userIdColumn = getUsersIdColumn($db);
 
 // Fetch batch
 $stmt = $db->prepare('SELECT * FROM batches WHERE batch_id = ? FOR UPDATE');
@@ -40,7 +41,7 @@ if ($stmt->fetch()) {
 }
 
 // Check user is in correct cluster
-$stmt = $db->prepare('SELECT cluster_id FROM users WHERE user_id = ?');
+$stmt = $db->prepare('SELECT cluster_id FROM users WHERE ' . $userIdColumn . ' = ?');
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 if ((int)$user['cluster_id'] !== (int)$batch['cluster_id']) {

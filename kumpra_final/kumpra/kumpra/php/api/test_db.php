@@ -10,10 +10,10 @@ echo "Config loaded. Attempting connection...\n";
 try {
     $db = getDB();
     echo "SUCCESS: Database connected successfully!\n";
-    echo json_encode(['success' => true, 'message' => 'Database connected successfully']);
+    echo "success=true&message=" . rawurlencode('Database connected successfully') . "\n";
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
     echo "Full error details:\n";
-    echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
+    echo "success=false&message=" . rawurlencode('Database connection failed: ' . $e->getMessage()) . "\n";
 }
 

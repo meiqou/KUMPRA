@@ -7,16 +7,34 @@ header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 /**
- * Standardized JSON response helper
+ * Standardized form-encoded response helper
  */
 function respond(array $data, int $status = 200): void {
-    // Clear buffer to ensure only the JSON is sent
+    // Clear buffer to ensure only the encoded payload is sent
     if (ob_get_length()) ob_clean();
+
+    $data = normalizeResponseValue($data);
     
     http_response_code($status);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data);
+    header('Content-Type: application/x-www-form-urlencoded; charset=utf-8');
+    echo http_build_query($data, '', '&', PHP_QUERY_RFC3986);
     exit;
+}
+
+function normalizeResponseValue(mixed $value): mixed {
+    if (is_array($value)) {
+        $normalized = [];
+        foreach ($value as $key => $item) {
+            $normalized[$key] = normalizeResponseValue($item);
+        }
+        return $normalized;
+    }
+
+    if (is_bool($value)) {
+        return $value ? 'true' : 'false';
+    }
+
+    return $value;
 }
 
 // Handle Preflight OPTIONS request immediately

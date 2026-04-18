@@ -20,9 +20,10 @@ if ($sizeLimit < 4) {
 }
 
 $db = getDB();
+$userIdColumn = getUsersIdColumn($db);
 
 try {
-    $stmt = $db->prepare('SELECT cluster_id FROM users WHERE user_id = ?');
+    $stmt = $db->prepare('SELECT cluster_id FROM users WHERE ' . $userIdColumn . ' = ?');
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
     if (!$user || (int)$user['cluster_id'] !== $clusterId) {

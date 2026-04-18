@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/constants.dart';
 import 'services/cart_provider.dart';
+import 'services/auth_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.getString('token') != null;
+  final isLoggedIn = await AuthService.isLoggedIn();
 
   runApp(
     ChangeNotifierProvider(
