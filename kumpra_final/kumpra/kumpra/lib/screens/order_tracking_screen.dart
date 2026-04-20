@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import '../services/api_service.dart';
+import 'live_map_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   const OrderTrackingScreen({super.key});
@@ -14,6 +15,39 @@ class OrderTrackingScreen extends StatefulWidget {
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Map<String, dynamic>? _order;
   bool _loading = true;
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
+  }
+
+  Future<void> _openLiveMap() async {
+    final order = _order;
+    if (order == null) return;
+
+    final orderId = _toInt(order['order_id']);
+    final lat = _toDouble(order['rider_latitude'] ?? order['latitude']);
+    final lng = _toDouble(order['rider_longitude'] ?? order['longitude']);
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LiveMapScreen(
+          orderId: orderId,
+          latitude: lat ?? AppConstants.marketLat,
+          longitude: lng ?? AppConstants.marketLng,
+          isLiveLocation: lat != null && lng != null,
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -172,7 +206,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: _openLiveMap,
                   icon: const Icon(Icons.map_outlined, color: AppColors.primaryDark),
                   label: Text('VIEW LIVE MAP', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primaryDark, letterSpacing: 1)),
                   style: ElevatedButton.styleFrom(

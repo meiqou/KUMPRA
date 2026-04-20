@@ -73,4 +73,7 @@ class AppConstants {
   static const String appName = 'KUMPRA';
   static const String registerEndpoint = "$baseUrl/auth/register.php";
   static const String clustersEndpoint = "$baseUrl/clusters/list.php";
+  static const String geoapifyApiKey = '9e8adf09cab047a0afe98837e665020e';
+  static const double marketLat = 10.6609;
+  static const double marketLng = 122.9484;
 }

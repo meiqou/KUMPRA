@@ -14,7 +14,12 @@ if ($orderId <= 0) respond(['success' => false, 'message' => 'order_id is requir
 
 $db = getDB();
 
-$stmt = $db->prepare('
+$hasRiderLatitude = hasTableColumn($db, 'riders', 'latitude');
+$hasRiderLongitude = hasTableColumn($db, 'riders', 'longitude');
+$riderLatitudeSelect = $hasRiderLatitude ? 'r.latitude AS rider_latitude' : 'NULL AS rider_latitude';
+$riderLongitudeSelect = $hasRiderLongitude ? 'r.longitude AS rider_longitude' : 'NULL AS rider_longitude';
+
+$stmt = $db->prepare(" 
     SELECT 
         o.order_id,
         o.status AS order_status,
@@ -27,14 +32,18 @@ $stmt = $db->prepare('
         b.status AS batch_status,
         c.barangay_name,
         c.street_zone,
+        c.latitude,
+        c.longitude,
         r.name AS rider_name,
+        $riderLatitudeSelect,
+        $riderLongitudeSelect,
         r.plate_number
     FROM orders o
     JOIN batches b ON o.batch_id = b.batch_id
     JOIN clusters c ON b.cluster_id = c.cluster_id
     LEFT JOIN riders r ON b.rider_id = r.rider_id
     WHERE o.order_id = ? AND o.user_id = ?
-');
+    ");
 $stmt->execute([$orderId, $userId]);
 $order = $stmt->fetch();
 

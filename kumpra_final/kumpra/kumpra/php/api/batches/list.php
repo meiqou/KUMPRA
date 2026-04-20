@@ -2,6 +2,7 @@
 // kumpra/api/batches/list.php
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/maps.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respond(['success' => false, 'message' => 'Method not allowed'], 405);
@@ -13,12 +14,6 @@ $clusterId = (int)($_GET['cluster_id'] ?? 0);
 if ($clusterId <= 0) {
     respond(['success' => false, 'message' => 'cluster_id is required']);
 }
-
-// Geoapify Configuration
-define('GEOAPIFY_API_KEY', '9e8adf09cab047a0afe98837e665020e');
-// Libertad Market Coordinates (Bacolod Center)
-define('MARKET_LAT', 10.6609);
-define('MARKET_LNG', 122.9484);
 
 define('DEFAULT_EST_TRAVEL_TIME', 5700); // 95 minutes in seconds
 
@@ -95,12 +90,11 @@ $batches = array_map(function($row) {
         'rider_name'  => $row['rider_name'],
         'map_config'  => [
             'api_key'         => GEOAPIFY_API_KEY,
-            'static_map_url'  => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e" . GEOAPIFY_API_KEY,
-            'google_maps_url' => "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+            'static_map_url'  => "https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=1200&height=800&center=lonlat:$lng,$lat&zoom=15&marker=lonlat:$lng,$lat;type:awesome;color:%23ef4444&apiKey=" . GEOAPIFY_API_KEY,
             'apple_maps_url'  => "https://maps.apple.com/?q=$lat,$lng",
             'native_geo_url'  => "geo:$lat,$lng?q=$lat,$lng",
-            'interactive_url' => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e",
-            'routing_url'     => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e" . MARKET_LAT . "," . MARKET_LNG . "|$lat,$lng&mode=drive&apiKey=" . GEOAPIFY_API_KEY,
+            'interactive_url' => "https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=1200&height=800&center=lonlat:$lng,$lat&zoom=15&marker=lonlat:$lng,$lat;type:awesome;color:%23ef4444&apiKey=" . GEOAPIFY_API_KEY,
+            'routing_url'     => "https://api.geoapify.com/v1/routing?waypoints=" . MARKET_LAT . "," . MARKET_LNG . "|$lat,$lng&mode=drive&apiKey=" . GEOAPIFY_API_KEY,
             'market_coords'   => ['lat' => MARKET_LAT, 'lng' => MARKET_LNG]
         ]
     ];
