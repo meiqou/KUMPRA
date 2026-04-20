@@ -215,8 +215,11 @@ class _ProductCard extends StatelessWidget {
                   const SizedBox(width: 14),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(item['name'], style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
-                    Text('₱${(item['price_min'] as double).toInt()}-${(item['price_max'] as double).toInt()}/${item['unit']}',
-                        style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(
+                      selectedUnit == 'KILO'
+                          ? '₱${(item['price_min'] as double).toInt()}-${(item['price_max'] as double).toInt()}/${item['unit']}'
+                          : '₱${((item['price_min'] as double) / 2).toInt()}-${((item['price_max'] as double) / 2).toInt()}/${selectedUnit.toLowerCase()}',
+                      style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary)),
                   ]),
                 ],
               ),
@@ -225,7 +228,11 @@ class _ProductCard extends StatelessWidget {
               Row(
                 children: ['KILO', 'PIECE', 'HALF'].map((u) => Expanded(
                   child: GestureDetector(
-                    onTap: () => setModal(() => selectedUnit = u),
+                    onTap: () => setModal(() {
+                      selectedUnit = u;
+                      if (quantity < 1.0) quantity = 1.0;
+                      quantity = quantity.ceilToDouble();
+                    }),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -247,13 +254,14 @@ class _ProductCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _QtyBtn(icon: Icons.remove, onTap: () {
-                    if (quantity > 0.5) setModal(() => quantity -= 0.5);
+                    if (quantity > 1.0) setModal(() => quantity -= 1.0);
                   }),
                   const SizedBox(width: 20),
-                  Text(quantity.toStringAsFixed(1),
-                      style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700)),
+                  Text(
+                    quantity.toInt().toString(),
+                    style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 20),
-                  _QtyBtn(icon: Icons.add, onTap: () => setModal(() => quantity += 0.5)),
+                  _QtyBtn(icon: Icons.add, onTap: () => setModal(() => quantity += 1.0)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -264,7 +272,9 @@ class _ProductCard extends StatelessWidget {
                     cart.addItem(CartItem(
                       name: item['name'],
                       emoji: item['emoji'],
-                      pricePerUnit: item['price_min'],
+                      pricePerUnit: selectedUnit == 'KILO'
+                          ? item['price_min'] as double
+                          : (item['price_min'] as double) / 2,
                       unit: selectedUnit.toLowerCase(),
                       quantity: quantity,
                     ));

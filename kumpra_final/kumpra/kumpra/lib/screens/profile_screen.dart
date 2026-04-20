@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import '../services/auth_service.dart';
+import 'edit_profile_screen.dart';
 import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -40,6 +41,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         (_) => false,
       );
+    }
+  }
+
+  void _editProfile() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+    );
+    if (updated == true && mounted) {
+      _load();
     }
   }
 
@@ -112,6 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 32),
+          _tile(Icons.edit, 'Edit Profile', _editProfile),
           _tile(Icons.history, 'Order History', () {}),
           _tile(Icons.location_on_outlined, 'My Cluster', () {}),
           _tile(Icons.notifications_outlined, 'Notifications', () {}),

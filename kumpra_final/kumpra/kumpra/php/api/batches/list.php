@@ -14,6 +14,14 @@ if ($clusterId <= 0) {
     respond(['success' => false, 'message' => 'cluster_id is required']);
 }
 
+// Geoapify Configuration
+define('GEOAPIFY_API_KEY', '9e8adf09cab047a0afe98837e665020e');
+// Libertad Market Coordinates (Bacolod Center)
+define('MARKET_LAT', 10.6609);
+define('MARKET_LNG', 122.9484);
+
+define('DEFAULT_EST_TRAVEL_TIME', 5700); // 95 minutes in seconds
+
 $db = getDB();
 
 $stmt = $db->prepare('
@@ -29,6 +37,8 @@ $stmt = $db->prepare('
         b.created_at,
         r.name AS rider_name,
         r.plate_number,
+        c.latitude,
+        c.longitude,
         c.barangay_name,
         c.street_zone,
         CASE WHEN o.order_id IS NOT NULL THEN 1 ELSE 0 END AS user_joined
@@ -47,7 +57,16 @@ $rows = $stmt->fetchAll();
 // Format for the app
 $batches = array_map(function($row) {
     $departure = date('h:i A', strtotime($row['created_at']));
-    $arrival = date('h:i A', strtotime($row['created_at']) + 5700); // ~95 mins
+    
+    // Ensure coordinates are valid; fallback to Bacolod City Center if 0 or NULL
+    $lat = (!empty($row['latitude']) && (float)$row['latitude'] != 0) 
+        ? (float)$row['latitude'] 
+        : 10.6765;
+    $lng = (!empty($row['longitude']) && (float)$row['longitude'] != 0) 
+        ? (float)$row['longitude'] 
+        : 122.9513;
+
+    $arrival = date('h:i A', strtotime($row['created_at']) + DEFAULT_EST_TRAVEL_TIME);
     $fee = $row['current_count'] > 0
         ? round(300 / max($row['current_count'], 1), 2)
         : 300.0;
@@ -63,6 +82,8 @@ $batches = array_map(function($row) {
     return [
         'batch_id'    => (int)$row['batch_id'],
         'name'        => strtoupper($row['barangay_name']) . '-' . $row['batch_id'],
+        'address'     => $row['street_zone'],
+        'cluster_name' => $row['barangay_name'],
         'status'      => $statusMap[$row['status']] ?? $row['status'],
         'departure'   => $departure,
         'est_arrival' => $arrival,
@@ -72,6 +93,16 @@ $batches = array_map(function($row) {
         'is_active'   => in_array($row['status'], ['Gathering', 'Last_Call']),
         'user_joined' => (bool)$row['user_joined'],
         'rider_name'  => $row['rider_name'],
+        'map_config'  => [
+            'api_key'         => GEOAPIFY_API_KEY,
+            'static_map_url'  => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e" . GEOAPIFY_API_KEY,
+            'google_maps_url' => "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+            'apple_maps_url'  => "https://maps.apple.com/?q=$lat,$lng",
+            'native_geo_url'  => "geo:$lat,$lng?q=$lat,$lng",
+            'interactive_url' => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e",
+            'routing_url'     => "https://api.geoapify.com/v1/routing?waypoints=50.96209827745463%2C4.414458883409225%7C50.429137079078345%2C5.00088081232559&mode=drive&apiKey=9e8adf09cab047a0afe98837e665020e" . MARKET_LAT . "," . MARKET_LNG . "|$lat,$lng&mode=drive&apiKey=" . GEOAPIFY_API_KEY,
+            'market_coords'   => ['lat' => MARKET_LAT, 'lng' => MARKET_LNG]
+        ]
     ];
 }, $rows);
 

@@ -15,6 +15,7 @@ class BasketScreen extends StatefulWidget {
 
 class _BasketScreenState extends State<BasketScreen> {
   bool _sending = false;
+  bool _leaving = false;
   String? _joinedBatchId;
 
   @override
@@ -28,6 +29,62 @@ class _BasketScreenState extends State<BasketScreen> {
     setState(() => _joinedBatchId = prefs.getString('joined_batch_id'));
   }
 
+  Future<String?> _getJoinedBatchId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('joined_batch_id');
+  }
+
+  Future<bool> _shouldShowLeaveBatch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final batchId = prefs.getString('joined_batch_id');
+    final orderId = prefs.getInt('current_order_id');
+    return batchId != null && batchId.isNotEmpty && orderId == null;
+  }
+
+  Future<void> _leaveBatch() async {
+    final batchId = await _getJoinedBatchId();
+    final requestBody = <String, dynamic>{};
+    if (batchId != null && batchId.isNotEmpty) {
+      requestBody['batch_id'] = int.parse(batchId);
+    }
+
+    setState(() => _leaving = true);
+
+    final res = await ApiService.post(
+      'batches/leave.php',
+      requestBody,
+      auth: true,
+    );
+
+    if (res['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('joined_batch_id');
+      await prefs.remove('current_order_id');
+      
+      final cart = context.read<CartProvider>();
+      cart.clear();
+      
+      if (mounted) {
+        setState(() => _joinedBatchId = null);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('You left the batch. Your cart has been cleared.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(res['message'] ?? 'Failed to leave batch. Try again.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+
+    setState(() => _leaving = false);
+  }
+
   void _sendToRider(CartProvider cart) async {
     if (cart.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -37,8 +94,10 @@ class _BasketScreenState extends State<BasketScreen> {
       ));
       return;
     }
-    if (_joinedBatchId == null || _joinedBatchId!.isEmpty) {
-      setState(() => _sending = false);
+
+    final prefs = await SharedPreferences.getInstance();
+    final batchId = prefs.getString('joined_batch_id');
+    if (batchId == null || batchId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Join or create a batch before sending your order.'),
         backgroundColor: AppColors.error,
@@ -60,7 +119,7 @@ class _BasketScreenState extends State<BasketScreen> {
     final res = await ApiService.post(
         'orders/create.php',
         {
-          'batch_id': int.parse(_joinedBatchId!),
+          'batch_id': int.parse(batchId),
           'estimated_total': cart.total,
           'items': items,
         },
@@ -71,6 +130,14 @@ class _BasketScreenState extends State<BasketScreen> {
     // FIX: Removed `|| true` which short-circuited the real API result,
     //      causing the app to always show "success" even on network/server errors.
     if (res['success'] == true) {
+      final orderId = res['order_id'];
+      if (orderId != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final orderIdInt = orderId is int ? orderId : int.tryParse(orderId.toString());
+        if (orderIdInt != null) {
+          await prefs.setInt('current_order_id', orderIdInt);
+        }
+      }
       cart.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -134,29 +201,55 @@ class _BasketScreenState extends State<BasketScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _sending ? null : () => _sendToRider(cart),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        minimumSize: const Size(double.infinity, 56),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _sending ? null : () => _sendToRider(cart),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: _sending
+                              ? const CircularProgressIndicator(
+                                  color: AppColors.primaryDark, strokeWidth: 2)
+                              : Text(
+                                  'SEND TO RIDER',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryDark,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                        ),
                       ),
-                      child: _sending
-                          ? const CircularProgressIndicator(
-                              color: AppColors.primaryDark, strokeWidth: 2)
-                          : Text(
-                              'SEND TO RIDER',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryDark,
-                                letterSpacing: 1.5,
-                              ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _leaving ? null : _leaveBatch,
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: Text(
+                            'LEAVE BATCH',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
                             ),
-                    ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -164,25 +257,51 @@ class _BasketScreenState extends State<BasketScreen> {
     );
   }
 
-  Widget _emptyState() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.shopping_basket_outlined,
-                size: 72, color: AppColors.textLight),
-            const SizedBox(height: 16),
-            Text('Your basket is empty',
-                style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text('Join a batch and add items from the Market Rows',
-                style: GoogleFonts.poppins(
-                    fontSize: 13, color: AppColors.textLight),
-                textAlign: TextAlign.center),
-          ],
-        ),
+  Widget _emptyState() => FutureBuilder<bool>(
+        future: _shouldShowLeaveBatch(),
+        builder: (context, snapshot) {
+          final showLeaveButton = snapshot.data == true;
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.shopping_basket_outlined,
+                    size: 72, color: AppColors.textLight),
+                const SizedBox(height: 16),
+                Text('Your basket is empty',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Text('Join a batch and add items from the Market Rows',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, color: AppColors.textLight),
+                    textAlign: TextAlign.center),
+                if (showLeaveButton) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: 220,
+                    child: OutlinedButton.icon(
+                      onPressed: _leaving ? null : _leaveBatch,
+                      icon: const Icon(Icons.logout, size: 18),
+                      label: Text('Leave Batch',
+                          style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       );
 }
 

@@ -51,16 +51,11 @@ if ((int)$user['cluster_id'] !== (int)$batch['cluster_id']) {
 // All good — respond success (order created when basket is submitted)
 $newCount = (int)$batch['current_count'] + 1;
 
-// Determine if we need to trigger Last_Call (4th order)
+// Determine if we need to trigger departure-ready status
 $db->beginTransaction();
 try {
     $newStatus = $batch['status'];
-    if ($newCount >= 4 && $batch['status'] === 'Gathering') {
-        $newStatus = 'Last_Call';
-        $expiry = date('Y-m-d H:i:s', time() + 600); // 10-min timer
-        $db->prepare('UPDATE batches SET status = ?, timer_expiry = ?, current_count = ? WHERE batch_id = ?')
-           ->execute([$newStatus, $expiry, $newCount, $batchId]);
-    } elseif ($newCount >= (int)$batch['size_limit']) {
+    if ($newCount >= 3 && $batch['status'] === 'Gathering') {
         $newStatus = 'Locked';
         $db->prepare('UPDATE batches SET status = ?, current_count = ? WHERE batch_id = ?')
            ->execute([$newStatus, $newCount, $batchId]);

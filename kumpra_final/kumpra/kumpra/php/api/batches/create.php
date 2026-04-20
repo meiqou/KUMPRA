@@ -30,6 +30,26 @@ try {
         respond(['success' => false, 'message' => 'You can only create batches in your own cluster.']);
     }
 
+    $stmt = $db->prepare('SELECT barangay_name, street_zone FROM clusters WHERE cluster_id = ?');
+    $stmt->execute([$clusterId]);
+    $cluster = $stmt->fetch();
+    if (!$cluster) {
+        respond(['success' => false, 'message' => 'Invalid cluster information.']);
+    }
+
+    $stmt = $db->prepare(
+        'SELECT batch_id FROM batches WHERE cluster_id = ? 
+         AND status IN (\'Gathering\', \'Last_Call\', \'Locked\') 
+         AND DATE(created_at) = CURDATE() LIMIT 1'
+    );
+    $stmt->execute([$clusterId]);
+    if ($stmt->fetch()) {
+        respond([
+            'success' => false,
+            'message' => 'A batch already exists in your barangay. Please wait until the rider departs before creating a new batch.',
+        ]);
+    }
+
     $stmt = $db->prepare('INSERT INTO batches (status, current_count, size_limit, cluster_id) VALUES (?, 0, ?, ?)');
     $stmt->execute(['Gathering', $sizeLimit, $clusterId]);
     $batchId = (int)$db->lastInsertId();
@@ -39,7 +59,10 @@ try {
         'message' => 'Batch created successfully',
         'batch' => [
             'batch_id' => $batchId,
-            'name' => 'NEW BATCH',
+            'name' => strtoupper($cluster['barangay_name']) . '-' . $batchId,
+            'address' => $cluster['street_zone'],
+            'cluster_id' => $clusterId,
+            'cluster_name' => $cluster['barangay_name'],
             'status' => 'Open',
             'departure' => date('h:i A'),
             'est_arrival' => date('h:i A', time() + 5700),

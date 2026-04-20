@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import 'php_response_parser.dart';
+import 'api_service.dart';
 
 class AuthService {
   // Base URL from AppConstants
@@ -14,8 +15,10 @@ class AuthService {
     await prefs.setBool('is_logged_in', true);
     await prefs.setString('user_name', userData['name'] ?? '');
     await prefs.setString('user_username', userData['username'] ?? '');
+    await prefs.setString('user_email', userData['email'] ?? '');
     await prefs.setString('cluster_name', userData['cluster_name'] ?? '');
-    await prefs.setString('cluster_id', (userData['cluster_id'] ?? '').toString());
+    await prefs.setString(
+        'cluster_id', (userData['cluster_id'] ?? '').toString());
 
     final token = userData['token'];
     if (token != null && token.toString().isNotEmpty) {
@@ -25,53 +28,41 @@ class AuthService {
 
   // 1. Fetch Clusters (Barangays)
   static Future<Map<String, dynamic>> getClusters() async {
-    try {
-      final res = await http.get(Uri.parse('$baseUrl/clusters/list.php'));
-      if (res.statusCode == 200) {
-        return parsePhpResponseBody(res.body);
-      }
-      return {'success': false, 'message': 'Server error: ${res.statusCode}'};
-    } catch (e) {
-      return {'success': false, 'message': 'Connection error: $e'};
-    }
+    return ApiService.get('clusters/list.php');
   }
 
   // 2. Login Method
   static Future<Map<String, dynamic>> login(
       String identifier, String password) async {
-    try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/login.php'),
-        body: {
-          'identifier': identifier,
-          'password': password,
-        },
-      );
-      return parsePhpResponseBody(res.body);
-    } catch (e) {
-      return {'success': false, 'message': 'Login failed: $e'};
-    }
+    return ApiService.post('auth/login.php', {
+      'identifier': identifier,
+      'password': password,
+    });
   }
 
-  // 3. Register Method (Cleaned up from your duplicates)
-  static Future<Map<String, dynamic>> register(
-      String name, String username, String email, String phone, String password, String clusterId) async {
-    try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/register.php'),
-        body: {
-          'name': name,
-          'username': username,
-          'email': email,
-          'phone': phone,
-          'password': password,
-          'cluster_id': clusterId,
-        },
-      );
-      return parsePhpResponseBody(res.body);
-    } catch (e) {
-      return {'success': false, 'message': 'Registration failed: $e'};
-    }
+  // 3. Register Method
+  static Future<Map<String, dynamic>> register(String name, String username,
+      String email, String phone, String password, String clusterId) async {
+    return ApiService.post('auth/register.php', {
+      'name': name,
+      'username': username,
+      'email': email,
+      'phone': phone,
+      'password': password,
+      'cluster_id': clusterId,
+    });
+  }
+
+  static Future<Map<String, dynamic>> updateProfile(String name,
+      String username, String email, String password, String clusterId) async {
+    final body = <String, dynamic>{};
+    if (name.isNotEmpty) body['name'] = name;
+    if (username.isNotEmpty) body['username'] = username;
+    if (email.isNotEmpty) body['email'] = email;
+    if (password.isNotEmpty) body['password'] = password;
+    if (clusterId.isNotEmpty) body['cluster_id'] = clusterId;
+
+    return ApiService.post('auth/update.php', body, auth: true);
   }
 
   // 4. Session Management

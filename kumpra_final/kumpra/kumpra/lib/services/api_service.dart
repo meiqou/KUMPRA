@@ -42,18 +42,31 @@ class ApiService {
     bool auth = false,
   }) async {
     try {
-      final requestBody = Map<String, dynamic>.from(body);
+      final Map<String, String> headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
       if (auth) {
         final token = await getToken();
         if (token != null && token.isNotEmpty) {
-          requestBody['token'] = token;
+          headers['Authorization'] = 'Bearer $token';
         }
       }
 
+      final url = '${AppConstants.baseUrl}/$endpoint'.replaceAll(RegExp(r'\s+'), '');
       final res = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/$endpoint'),
-        body: _encodeFormBody(requestBody),
+        Uri.parse(url),
+        headers: headers,
+        body: _encodeFormBody(body),
       );
+      
+      // DEBUG: Log full response for troubleshooting
+      print('API POST ${res.statusCode} to $url');
+      print('Response body: ${res.body}');
+      if (res.statusCode >= 400) {
+        print('ERROR details: ${res.headers}');
+      }
+      
       return parsePhpResponseBody(res.body);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -66,16 +79,28 @@ class ApiService {
     Map<String, String>? params,
   }) async {
     try {
-      var uri = Uri.parse('${AppConstants.baseUrl}/$endpoint');
-      final queryParameters = <String, String>{...?params};
+      final url = '${AppConstants.baseUrl}/$endpoint'.replaceAll(RegExp(r'\s+'), '');
+      var uri = Uri.parse(url);
+      final Map<String, String> headers = {
+        'Accept': 'application/json',
+      };
       if (auth) {
         final token = await getToken();
         if (token != null && token.isNotEmpty) {
-          queryParameters['token'] = token;
+          headers['Authorization'] = 'Bearer $token';
         }
       }
-      if (queryParameters.isNotEmpty) uri = uri.replace(queryParameters: queryParameters);
-      final res = await http.get(uri);
+      
+      if (params != null && params.isNotEmpty) uri = uri.replace(queryParameters: params);
+      final res = await http.get(uri, headers: headers);
+      
+      // DEBUG: Log full response for troubleshooting
+      print('API GET ${res.statusCode} to $uri');
+      print('Response body: ${res.body}');
+      if (res.statusCode >= 400) {
+        print('ERROR details: ${res.headers}');
+      }
+      
       return parsePhpResponseBody(res.body);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};

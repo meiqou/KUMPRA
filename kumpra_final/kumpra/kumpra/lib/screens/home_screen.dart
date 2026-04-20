@@ -19,6 +19,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<State<OrderTrackingScreen>> _orderTrackingKey = GlobalKey<State<OrderTrackingScreen>>();
+
   int _tab = 0;
   String _clusterName = '';
   List<dynamic> _batches = [];
@@ -34,48 +36,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final clusterId = prefs.getString('cluster_id') ?? '1';
+    final clusterId = prefs.getString('cluster_id') ?? '0';
     setState(() {
       _clusterName = prefs.getString('cluster_name') ?? 'Bacolod';
-      // FIX: Restore joinedBatchId from prefs so the "JOINED ✓" state
-      //      survives tab switches and hot restarts.
       _joinedBatchId = prefs.getString('joined_batch_id');
+      _loading = true;
     });
+
+    if (clusterId == '0' || clusterId.isEmpty) {
+      setState(() {
+        _batches = [];
+        _loading = false;
+      });
+      return;
+    }
 
     final res = await ApiService.get('batches/list.php',
         auth: true, params: {'cluster_id': clusterId});
     if (mounted) {
       setState(() {
-        _batches = res['batches'] ?? _mockBatches();
+        _batches = res['batches'] ?? [];
         _loading = false;
       });
     }
   }
-
-  List<Map<String, dynamic>> _mockBatches() => [
-        {
-          'batch_id': '1',
-          'name': 'VILLA-A1',
-          'status': 'Departing Soon',
-          'departure': '09:15 AM',
-          'est_arrival': '10:50 AM',
-          'joined': 8,
-          'size_limit': 12,
-          'shared_fee': 25.0,
-          'is_active': true,
-        },
-        {
-          'batch_id': '2',
-          'name': 'VILLA-B5',
-          'status': 'Open',
-          'departure': '09:15 AM',
-          'est_arrival': '10:50 AM',
-          'joined': 4,
-          'size_limit': 12,
-          'shared_fee': 25.0,
-          'is_active': false,
-        },
-      ];
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildBatchList(),
           const MarketRowsScreen(),
           const BasketScreen(),
-          const OrderTrackingScreen(),
+          OrderTrackingScreen(key: _orderTrackingKey),
           const ProfileScreen(),
         ],
       ),
@@ -147,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'New batches need at least 4 of 6 users before the rider departs.',
+                  'New batches need at least 3 of 6 users before the rider departs.',
                   style: GoogleFonts.poppins(
                       fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -173,17 +157,32 @@ class _HomeScreenState extends State<HomeScreen> {
           const SliverFillRemaining(
               child: Center(
                   child: CircularProgressIndicator(color: AppColors.primary)))
+        else if (_batches.isEmpty)
+          SliverFillRemaining(
+            child: Center(
+              child: Text(
+                'No batches available yet.\nCreate one and invite your cluster members to join.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          )
         else
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (_, i) => _BatchCard(
-                  batch: _batches[i],
-                  isJoined:
-                      _joinedBatchId == _batches[i]['batch_id'].toString(),
-                  onJoin: () => _joinBatch(_batches[i]),
-                ),
+                (_, i) {
+                  final batch = _batches[i];
+                  return _BatchCard(
+                    batch: batch,
+                    isJoined: _joinedBatchId == batch['batch_id'].toString(),
+                    onJoin: () => _joinBatch(batch),
+                  );
+                },
                 childCount: _batches.length,
               ),
             ),
@@ -230,7 +229,9 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _creatingBatch = false);
     if (res['success'] == true) {
       _showSnack(
-          'Batch created. Invite 4–6 people to join before the rider departs.');
+        'Batch created. Invite 3–6 people to join before the rider departs.',
+        backgroundColor: AppColors.success,
+      );
       _loadData();
     } else {
       _showSnack(res['message'] ?? 'Failed to create batch');
@@ -239,39 +240,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _joinBatch(Map<String, dynamic> batch) async {
     final res = await ApiService.post(
-        'batches/join.php',
-        {
-          'batch_id': batch['batch_id'],
-        },
-        auth: true);
+      'batches/join.php',
+      {'batch_id': batch['batch_id']},
+      auth: true,
+    );
 
-    final success = res['success'] == true || batch['is_active'] == true;
-    if (success) {
+    if (res['success'] == true) {
       final batchIdStr = batch['batch_id'].toString();
-      // FIX: Persist joinedBatchId so it isn't lost on tab changes.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('joined_batch_id', batchIdStr);
       setState(() => _joinedBatchId = batchIdStr);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text('Joined ${batch['name']}! Now add items to your basket.'),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-        ));
-        setState(() => _tab = 1);
-      }
+      _showSnack('Joined ${batch['name']}! Now add items to your basket.',
+          backgroundColor: AppColors.success);
+      setState(() => _tab = 2);
+      _loadData();
     } else {
       _showSnack(res['message'] ?? 'Could not join batch');
     }
   }
 
-  void _showSnack(String msg) {
+  void _showSnack(String msg, {Color backgroundColor = AppColors.error}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: AppColors.error,
+      backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
     ));
+  }
+
+  void _setTab(int index) {
+    setState(() => _tab = index);
+    if (index == 3) {
+      final currentState = _orderTrackingKey.currentState;
+      if (currentState != null) {
+        (currentState as dynamic).refreshOrder();
+      }
+    }
   }
 
   Widget _buildNavBar(int cartCount) {
@@ -303,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _navItem(IconData icon, int index) {
     return GestureDetector(
-      onTap: () => setState(() => _tab = index),
+      onTap: () => _setTab(index),
       child: Icon(
         icon,
         color: _tab == index ? AppColors.primary : Colors.white38,
@@ -372,17 +375,32 @@ class _BatchCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                batch['name'] ?? '',
-                style: GoogleFonts.poppins(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  fontStyle: FontStyle.italic,
-                  color: active ? Colors.white : AppColors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      batch['name'] ?? '',
+                      style: GoogleFonts.poppins(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                        color: active ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      batch['address'] ?? '',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: active ? Colors.white70 : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -395,9 +413,7 @@ class _BatchCard extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: active
-                        ? AppColors.primaryDark
-                        : AppColors.textSecondary,
+                    color: active ? AppColors.primaryDark : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -527,3 +543,4 @@ class _AvatarRow extends StatelessWidget {
     );
   }
 }
+

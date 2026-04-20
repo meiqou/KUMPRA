@@ -1,12 +1,85 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import '../services/api_service.dart';
 
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends StatefulWidget {
   const OrderTrackingScreen({super.key});
 
   @override
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  Map<String, dynamic>? _order;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrder();
+  }
+
+  Future<void> refreshOrder() async {
+    setState(() => _loading = true);
+    await _loadOrder();
+  }
+
+  Future<void> _loadOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderId = prefs.getInt('current_order_id');
+
+    if (orderId == null) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    final res = await ApiService.get(
+      'orders/status.php',
+      auth: true,
+      params: {'order_id': orderId.toString()},
+    );
+
+    if (res['success'] == true && res['order'] != null) {
+      setState(() => _order = res['order']);
+    }
+    setState(() => _loading = false);
+  }
+
+
+  @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    if (_order == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.info_outline, size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 16),
+              Text('No active orders yet', style: GoogleFonts.poppins(fontSize: 16, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final order = _order!;
+    final items = (order['items'] as List<dynamic>?) ?? [];
+    final batchStatus = order['batch_status'] ?? 'Gathering';
+    final progressMap = {'Gathering': 0.0, 'Last_Call': 0.0, 'Locked': 0.0, 'Purchasing': 0.25, 'In_Transit': 0.75, 'Completed': 1.0};
+    final progress = progressMap[batchStatus] ?? 0.0;
+    final batchName = '${order['barangay_name'] ?? 'BATCH'}-${order['batch_id'] ?? ''}';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -24,7 +97,7 @@ class OrderTrackingScreen extends StatelessWidget {
                   Text('ORDER IN PROGRESS', style: GoogleFonts.poppins(
                     fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600, letterSpacing: 1,
                   )),
-                  Text('VILLA-A1 BATCH', style: GoogleFonts.poppins(
+                  Text(batchName.toUpperCase(), style: GoogleFonts.poppins(
                     fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, fontStyle: FontStyle.italic,
                   )),
                 ],
@@ -51,12 +124,8 @@ class OrderTrackingScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 14),
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Juan Doe', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
+                        Text(order['rider_name'] ?? 'Unassigned', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
                         Text('ASSIGNED RIDER', style: GoogleFonts.poppins(fontSize: 10, color: AppColors.textLight, letterSpacing: 1)),
-                        Row(children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          Text(' 57 TRIPS', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                        ]),
                       ]),
                       const Spacer(),
                       Container(
@@ -70,14 +139,23 @@ class OrderTrackingScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 Text('MARKET PROGRESS', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 1)),
                 const SizedBox(height: 10),
-                _ProgressBar(),
+                _ProgressBar(progress: progress),
                 const SizedBox(height: 20),
-                Text('PICKED ITEMS', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 1)),
-                const SizedBox(height: 12),
-                _itemCard('🐟', 'Bangus', '1.0 KILO', '₱210.00'),
-                const SizedBox(height: 10),
-                _itemCard('🌶️', 'Siling Labuyo', '2 PACKS', '₱40.00'),
-                const SizedBox(height: 24),
+                if (items.isNotEmpty) ...[
+                  Text('PICKED ITEMS', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 1)),
+                  const SizedBox(height: 12),
+                  ...items.asMap().entries.map((e) {
+                    final item = e.value as Map<String, dynamic>;
+                    final itemName = item['item_name'] ?? 'Item';
+                    final quantity = item['quantity'] ?? '1 unit';
+                    final price = '₱${(item['user_est_price'] ?? 0).toStringAsFixed(2)}';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _itemCard('📦', itemName, quantity, price),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 24),
+                ],
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(14)),
@@ -85,7 +163,7 @@ class OrderTrackingScreen extends StatelessWidget {
                     children: [
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('ESTIMATED TOTAL', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w600)),
-                        Text('₱275.00', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
+                        Text('₱${(order['estimated_total'] ?? 0).toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
                       ]),
                       const Spacer(),
                       Text('Delivery Fee Included', style: GoogleFonts.poppins(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)),
@@ -112,7 +190,7 @@ class OrderTrackingScreen extends StatelessWidget {
   }
 
   Widget _itemCard(String emoji, String name, String qty, String price) {
-    return Builder(builder: (context) => Container(
+    return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
@@ -123,20 +201,23 @@ class OrderTrackingScreen extends StatelessWidget {
           Text('$qty • $price', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
         ]),
       ]),
-    ));
+    );
   }
 }
 
 class _ProgressBar extends StatelessWidget {
+  final double progress;
+  const _ProgressBar({required this.progress});
+
   @override
   Widget build(BuildContext context) {
-    final steps = ['WET MARKET', 'VEGGIES', 'MEAT ROW', 'SPICES'];
+    final steps = ['GATHERING', 'PURCHASING', 'IN_TRANSIT', 'COMPLETED'];
     return Column(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: 0.35,
+            value: progress,
             backgroundColor: Colors.grey.shade200,
             color: AppColors.primary,
             minHeight: 8,

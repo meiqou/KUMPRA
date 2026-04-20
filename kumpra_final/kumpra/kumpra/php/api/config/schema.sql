@@ -12,7 +12,9 @@ USE kumpra_db;
 CREATE TABLE clusters (
     cluster_id     INT AUTO_INCREMENT PRIMARY KEY,
     barangay_name  VARCHAR(100) NOT NULL,
-    street_zone    VARCHAR(100)
+    street_zone    VARCHAR(100),
+    latitude       DECIMAL(10, 8),
+    longitude      DECIMAL(11, 8)
 ) ENGINE=InnoDB;
 
 -- ─────────────────────────────────────────────
@@ -101,19 +103,31 @@ CREATE TABLE order_items (
 -- ─────────────────────────────────────────────
 -- SEED DATA
 -- ─────────────────────────────────────────────
-INSERT INTO clusters (barangay_name, street_zone) VALUES
-('Mansilingan, Bacolod', 'Villa Zone A'),
-('Taculing, Bacolod', 'Zone B'),
-('Singcang, Bacolod', 'Zone C'),
-('Bata, Bacolod', 'Zone D'),
-('Tangub, Bacolod', 'Zone E');
-
-INSERT INTO clusters (barangay_name, street_zone) VALUES
-('Alijis, Bacolod', 'Zone F'),
-('Banago, Bacolod', 'Zone G'),
-('Burgos, Bacolod', 'Zone H'),
-('Estefania, Bacolod', 'Zone I'),
-('Mandalagan, Bacolod', 'Zone J');
+TRUNCATE TABLE clusters;
+INSERT INTO clusters (cluster_id, barangay_name, street_zone, latitude, longitude) VALUES
+(1, 'Alijis', 'Main Zone', 10.64160000, 122.95420000),
+(2, 'Banago', 'Coastal Zone', 10.70320000, 122.94230000),
+(3, 'Bata', 'Zone 1', 10.70920000, 122.96450000),
+(4, 'Cabug', 'Purok Main', 10.60670000, 122.94670000),
+(5, 'Estefania', 'Fortune Town', 10.68500000, 122.98000000),
+(6, 'Felisa', 'Relocation Site', 10.60330000, 122.97830000),
+(7, 'Granada', 'Proper', 10.67330000, 123.02330000),
+(8, 'Handumanan', 'Phase 1', 10.61330000, 122.97330000),
+(9, 'Mandalagan', 'Luzuriaga', 10.69760000, 122.96090000),
+(10, 'Mansilingan', 'Hermelinda Drive', 10.64330000, 122.96420000),
+(11, 'Pahanocoy', 'CECHO', 10.61500000, 122.93500000),
+(12, 'Punta Taytay', 'Beach Area', 10.59330000, 122.92330000),
+(13, 'Singcang-Airport', 'Miramar', 10.64500000, 122.93500000),
+(14, 'Sum-ag', 'Public Market Area', 10.60330000, 122.93330000),
+(15, 'Taculing', 'City Heights', 10.65580000, 122.94920000),
+(16, 'Tangub', 'Golden River', 10.62800000, 122.93800000),
+(17, 'Villamonte', 'Shopping', 10.67500000, 122.96800000),
+(18, 'Vista Alegre', 'Relocation', 10.65000000, 122.99000000),
+(19, 'Barangay 1', 'North Capitol', 10.67750000, 122.94750000),
+(20, 'Barangay 16', 'Libertad', 10.66360000, 122.94820000),
+(21, 'Barangay 23', 'Paglaum', 10.67050000, 122.95550000),
+(22, 'Barangay 35', 'Reclamation', 10.67800000, 122.94100000),
+(23, 'Montevista', 'Zone 1', 10.68000000, 122.97200000);
 
 INSERT INTO riders (name, plate_number, wallet_balance, work_shift) VALUES
 ('Juan Dela Cruz', 'BCD-1234', 0.0, 'Morning'),
