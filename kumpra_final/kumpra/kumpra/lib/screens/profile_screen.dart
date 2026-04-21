@@ -5,6 +5,10 @@ import '../utils/constants.dart';
 import '../services/auth_service.dart';
 import 'edit_profile_screen.dart';
 import 'onboarding_screen.dart';
+import 'my_cluster_screen.dart';
+import 'help_support_screen.dart';
+import 'notifications_screen.dart';
+import 'order_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -123,11 +127,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          _tile(Icons.edit, 'Edit Profile', _editProfile),
-          _tile(Icons.history, 'Order History', () {}),
-          _tile(Icons.location_on_outlined, 'My Cluster', () {}),
-          _tile(Icons.notifications_outlined, 'Notifications', () {}),
-          _tile(Icons.help_outline, 'Help & Support', () {}),
+_tile(Icons.edit, 'Edit Profile', _editProfile),
+_tile(Icons.history, 'Order History', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrderHistoryScreen()))),
+_tile(Icons.location_on_outlined, 'My Cluster', () {
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyClusterScreen()));
+  debugPrint('Navigating to MyClusterScreen');
+}),
+_tile(Icons.notifications_outlined, 'Notifications', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
+
+_tile(Icons.help_outline, 'Help & Support', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen()))),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
